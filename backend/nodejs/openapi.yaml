@@ -1,0 +1,476 @@
+openapi: 3.0.3
+info:
+  title: Notes App API
+  description: |
+    REST API for managing notes with CRUD operations, keyword search, and validation.
+    All endpoints are served from the Express application in the Notes App backend.
+  version: 1.0.0
+  contact:
+    name: Notes App Team
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Returns the current application status.
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: OK
+                message: Notes API is running
+
+  /api/notes:
+    get:
+      summary: Get all notes
+      description: Returns the complete list of notes stored in the JSON data file.
+      operationId: getAllNotes
+      tags:
+        - Notes
+      responses:
+        '200':
+          description: Notes retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Note'
+              example:
+                - id: "a1b2c3d4-e5f6-47a8-9d10-3ec5a2c4d7e8"
+                  title: "Project kickoff"
+                  content: "Discuss sprint goals and assign ownership."
+                  tags:
+                    - "work"
+                    - "planning"
+                  createdAt: "2026-09-16T08:00:00.000Z"
+                  updatedAt: "2026-09-16T08:15:00.000Z"
+                - id: "f7a8b9c0-d1e2-4f53-8a74-22ec9ae5d123"
+                  title: "Shopping list"
+                  content: "Milk, rice, and coffee beans"
+                  tags:
+                    - "personal"
+                  createdAt: "2026-09-15T12:10:00.000Z"
+                  updatedAt: "2026-09-15T12:10:00.000Z"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/notes/count:
+    get:
+      summary: Count notes
+      description: Returns the number of notes currently stored.
+      operationId: countNotes
+      tags:
+        - Notes
+      responses:
+        '200':
+          description: Note count retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - count
+                properties:
+                  count:
+                    type: integer
+                    minimum: 0
+              example:
+                count: 2
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Create a new note
+      description: Creates a new note with a title, content, and optional tags.
+      operationId: createNote
+      tags:
+        - Notes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNoteRequest'
+            examples:
+              valid:
+                summary: Valid note payload
+                value:
+                  title: "Daily standup summary"
+                  content: "Reviewed blocker list and deployment plan."
+                  tags:
+                    - "engineering"
+                    - "team"
+              missingContent:
+                summary: Missing required field
+                value:
+                  title: "Daily standup summary"
+                  tags:
+                    - "engineering"
+      responses:
+        '201':
+          description: Note created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+              example:
+                id: "4e56d4d1-48e2-4c9a-8a2b-7c0cf75d5b5d"
+                title: "Daily standup summary"
+                content: "Reviewed blocker list and deployment plan."
+                tags:
+                  - "engineering"
+                  - "team"
+                createdAt: "2026-09-16T09:00:00.000Z"
+                updatedAt: "2026-09-16T09:00:00.000Z"
+        '400':
+          description: Validation failed for the request body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                titleRequired:
+                  value:
+                    error: "Title is required"
+                contentRequired:
+                  value:
+                    error: "Content is required"
+                invalidTags:
+                  value:
+                    error: "Tags must be an array of non-empty strings"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/notes/search:
+    get:
+      summary: Search notes by title or content
+      description: Finds notes whose title or content contains the given keyword, using a case-insensitive partial match.
+      operationId: searchNotes
+      tags:
+        - Notes
+      parameters:
+        - in: query
+          name: keyword
+          required: true
+          description: Keyword used to search titles and content.
+          schema:
+            type: string
+            example: "meeting"
+      responses:
+        '200':
+          description: Matching notes returned.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Note'
+              example:
+                - id: "d8f7f2bb-f17d-40a1-b17f-bdd23d3d2c1a"
+                  title: "Client meeting notes"
+                  content: "Follow up on onboarding requirements."
+                  tags:
+                    - "client"
+                  createdAt: "2026-09-14T10:30:00.000Z"
+                  updatedAt: "2026-09-14T10:45:00.000Z"
+        '400':
+          description: Search keyword is missing or blank.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Search keyword is required"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/notes/{id}:
+    get:
+      summary: Get a note by ID
+      description: Returns a single note matching the provided ID.
+      operationId: getNoteById
+      tags:
+        - Notes
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: Unique identifier of the note.
+          schema:
+            type: string
+            example: "a1b2c3d4-e5f6-47a8-9d10-3ec5a2c4d7e8"
+      responses:
+        '200':
+          description: Note found and returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+              example:
+                id: "a1b2c3d4-e5f6-47a8-9d10-3ec5a2c4d7e8"
+                title: "Project kickoff"
+                content: "Discuss sprint goals and assign ownership."
+                tags:
+                  - "work"
+                  - "planning"
+                createdAt: "2026-09-16T08:00:00.000Z"
+                updatedAt: "2026-09-16T08:15:00.000Z"
+        '400':
+          description: ID is missing or empty.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Note id is required"
+        '404':
+          description: Note not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Note not found"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: Update a note by ID
+      description: Updates a note using a partial object. At least one valid field must be provided.
+      operationId: updateNote
+      tags:
+        - Notes
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: Unique identifier of the note to update.
+          schema:
+            type: string
+            example: "a1b2c3d4-e5f6-47a8-9d10-3ec5a2c4d7e8"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNoteRequest'
+            examples:
+              updateTitleAndContent:
+                summary: Update note title and content
+                value:
+                  title: "Project kickoff updated"
+                  content: "Discuss final sprint goals and repo ownership."
+              updateTags:
+                summary: Update tags only
+                value:
+                  tags:
+                    - "team"
+                    - "delivery"
+              emptyPayload:
+                summary: Empty payload
+                value: {}
+      responses:
+        '200':
+          description: Note updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+              example:
+                id: "a1b2c3d4-e5f6-47a8-9d10-3ec5a2c4d7e8"
+                title: "Project kickoff updated"
+                content: "Discuss final sprint goals and repo ownership."
+                tags:
+                  - "team"
+                  - "delivery"
+                createdAt: "2026-09-16T08:00:00.000Z"
+                updatedAt: "2026-09-16T08:40:00.000Z"
+        '400':
+          description: Invalid request payload or bad field values.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                emptyPayload:
+                  value:
+                    error: "At least one field is required to update"
+                invalidTitle:
+                  value:
+                    error: "Title must be a non-empty string"
+                invalidTags:
+                  value:
+                    error: "Tags must be an array of non-empty strings"
+        '404':
+          description: Note not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Note not found"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Delete a note by ID
+      description: Deletes a note from storage. Returns no content upon success.
+      operationId: deleteNote
+      tags:
+        - Notes
+      parameters:
+        - in: path
+          name: id
+          required: true
+          description: Unique identifier of the note to delete.
+          schema:
+            type: string
+            example: "a1b2c3d4-e5f6-47a8-9d10-3ec5a2c4d7e8"
+      responses:
+        '204':
+          description: Note deleted successfully.
+        '400':
+          description: ID is missing or empty.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Note id is required"
+        '404':
+          description: Note not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Note not found"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: string
+          example: OK
+        message:
+          type: string
+          example: Notes API is running
+
+    Note:
+      type: object
+      required:
+        - id
+        - title
+        - content
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-47a8-9d10-3ec5a2c4d7e8"
+        title:
+          type: string
+          example: "Project kickoff"
+        content:
+          type: string
+          example: "Discuss sprint goals and assign ownership."
+        tags:
+          type: array
+          items:
+            type: string
+          example:
+            - "work"
+            - "planning"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-09-16T08:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-09-16T08:15:00.000Z"
+
+    CreateNoteRequest:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+          description: Title of the note. Must be a non-empty string.
+          minLength: 1
+          example: "Daily standup summary"
+        content:
+          type: string
+          description: Content of the note. Must be a non-empty string.
+          minLength: 1
+          example: "Reviewed blocker list and deployment plan."
+        tags:
+          type: array
+          description: Optional array of non-empty tag strings.
+          items:
+            type: string
+            minLength: 1
+          example:
+            - "engineering"
+            - "team"
+
+    UpdateNoteRequest:
+      type: object
+      description: A partial update object. At least one property must be supplied.
+      minProperties: 1
+      properties:
+        title:
+          type: string
+          minLength: 1
+          example: "Project kickoff updated"
+        content:
+          type: string
+          minLength: 1
+          example: "Discuss final sprint goals and repo ownership."
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+          example:
+            - "team"
+            - "delivery"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+          example: "Note not found"
+
+  responses:
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Failed to fetch notes"
